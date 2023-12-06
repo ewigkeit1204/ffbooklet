@@ -66,7 +66,7 @@ public class Main {
 
         try (PDDocument input = Loader.loadPDF(new File(files[0])); PDDocument output = new PDDocument()) {
             boolean isBlank = cmd.hasOption("b");
-//            boolean isRhs = cmd.hasOption("r");
+            boolean isRhs = cmd.hasOption("r");
             int degree = 0;
 
             if (cmd.hasOption("R")) {
@@ -125,11 +125,13 @@ public class Main {
 
             }
 
-//            if (isRhs) {
-//                for (PDPage pdPage : pages) {
-//                    
-//                }
-//            }
+            if (isRhs) {
+                for (int i = pages.getCount() - 2; i >= 0; i--) {
+                    PDPage page = pages.get(i);
+                    pages.remove(i);
+                    pages.add(page);
+                }
+            }
 
             output.save(new File(files[1]));
         } catch (IOException e) {
@@ -209,8 +211,8 @@ public class Main {
         Options options = new Options();
         options.addOption(Option.builder("b").longOpt("blank").desc("back cover is blank").build());
         options.addOption(Option.builder("h").longOpt("help").desc("show usage").build());
-//        options.addOption(Option.builder("l").longOpt("left-handed-side").desc("left handed side (default)").build());
-//        options.addOption(Option.builder("r").longOpt("right-handed-side").desc("right handed side").build());
+        options.addOption(Option.builder("l").longOpt("left-handed-side").desc("left handed side (default)").build());
+        options.addOption(Option.builder("r").longOpt("right-handed-side").desc("right handed side").build());
         options.addOption(Option.builder("R").longOpt("rotate").argName("angle").hasArg()
                 .desc("rotate pages by the specified angle (angle may be 0, 90, 180, or 270").build());
 
