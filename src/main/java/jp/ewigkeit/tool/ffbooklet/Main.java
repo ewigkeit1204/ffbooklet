@@ -88,7 +88,7 @@ public class Main {
                 float width = 0;
                 float height = 0;
 
-                if (degree % 360 == 90 || degree % 360 == 270) {
+                if (degree % 180 == 90) {
                     width = mediaBox.getHeight() / 2;
                     height = mediaBox.getWidth();
                 } else {
