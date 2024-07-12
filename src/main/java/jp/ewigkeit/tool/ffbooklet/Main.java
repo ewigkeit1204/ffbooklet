@@ -101,7 +101,7 @@ public class Main {
                 }
 
                 for (BufferedImage processed : cropImage(image, degree)) {
-                    PDImageXObject pdImage = JPEGFactory.createFromImage(output, processed);
+                    PDImageXObject pdImage = JPEGFactory.createFromImage(output, processed, 0.9f);
                     PDPage newPage = new PDPage(new PDRectangle(width, height));
                     try (PDPageContentStream contentStream = new PDPageContentStream(output, newPage)) {
                         Matrix matrix = Matrix.getScaleInstance(width, height);
