@@ -16,7 +16,11 @@
 package jp.ewigkeit.tool.ffbooklet;
 
 import java.awt.Graphics2D;
+import java.awt.Image;
+import java.awt.Toolkit;
 import java.awt.image.BufferedImage;
+import java.awt.image.CropImageFilter;
+import java.awt.image.FilteredImageSource;
 import java.io.File;
 import java.io.IOException;
 import java.util.Optional;
@@ -70,7 +74,7 @@ public class Main {
             int degree = 0;
 
             if (cmd.hasOption("R")) {
-                degree = Integer.parseInt(cmd.getOptionValue("rotate"));
+                degree = Integer.parseInt(cmd.getOptionValue("rotate")) % 360;
 
                 if (degree % 90 != 0) {
                     System.err.println("ERROR: degree must be multiplied by 90");
@@ -89,20 +93,21 @@ public class Main {
                 float height = 0;
 
                 if (degree % 180 == 90) {
-                    width = mediaBox.getHeight() / 2;
-                    height = mediaBox.getWidth();
+                    width = mediaBox.getWidth();
+                    height = mediaBox.getHeight() / 2;
                 } else {
                     width = mediaBox.getWidth() / 2;
                     height = mediaBox.getHeight();
                 }
 
-                for (BufferedImage processed : processImage(image, degree)) {
+                for (BufferedImage processed : cropImage(image, degree)) {
                     PDImageXObject pdImage = JPEGFactory.createFromImage(output, processed);
                     PDPage newPage = new PDPage(new PDRectangle(width, height));
                     try (PDPageContentStream contentStream = new PDPageContentStream(output, newPage)) {
                         Matrix matrix = Matrix.getScaleInstance(width, height);
                         contentStream.drawImage(pdImage, matrix);
                     }
+                    newPage.setRotation(degree);
 
                     if (back == null) {
                         pages.add(newPage);
@@ -140,59 +145,48 @@ public class Main {
         }
     }
 
-    static BufferedImage[] processImage(BufferedImage image, int degree) {
-        BufferedImage rotatedImage = rotate(image, degree);
-        int chunkWidth = rotatedImage.getWidth() / 2;
-        int chunkHeight = rotatedImage.getHeight();
-        BufferedImage images[] = new BufferedImage[2];
-
-        for (int x = 0; x < 2; x++) {
-            images[x] = new BufferedImage(chunkWidth, chunkHeight, rotatedImage.getType());
-
-            Graphics2D g = images[x].createGraphics();
-            g.drawImage(rotatedImage, 0, 0, chunkWidth, chunkHeight, chunkWidth * x, 0, chunkWidth * (x + 1),
-                    chunkHeight, null);
-            g.dispose();
-        }
-
-        return images;
-    }
-
-    static BufferedImage rotate(BufferedImage image, int degree) {
-        // rotate
-        int width = image.getWidth();
-        int height = image.getHeight();
-        int x = 0;
-        int y = 0;
-        BufferedImage rotatedImage;
+    static BufferedImage[] cropImage(BufferedImage image, int degree) {
+        CropImageFilter[] filters = new CropImageFilter[2];
+        BufferedImage[] images = new BufferedImage[filters.length];
 
         switch (degree % 360) {
         case 0:
-            return image;
+            filters[0] = new CropImageFilter(0, 0, image.getWidth() / 2, image.getHeight());
+            filters[1] = new CropImageFilter(image.getWidth() / 2, 0, image.getWidth() / 2, image.getHeight());
+            break;
         case 90:
-            x = height;
-            rotatedImage = new BufferedImage(height, width, image.getType());
+            filters[0] = new CropImageFilter(0, image.getHeight() / 2, image.getWidth(), image.getHeight() / 2);
+            filters[1] = new CropImageFilter(0, 0, image.getWidth(), image.getHeight() / 2);
             break;
         case 180:
-            x = width;
-            y = height;
-            rotatedImage = new BufferedImage(width, height, image.getType());
+            filters[0] = new CropImageFilter(image.getWidth() / 2, 0, image.getWidth() / 2, image.getHeight());
+            filters[1] = new CropImageFilter(0, 0, image.getWidth() / 2, image.getHeight());
             break;
         case 270:
-            y = width;
-            rotatedImage = new BufferedImage(height, width, image.getType());
+            filters[0] = new CropImageFilter(0, 0, image.getWidth(), image.getHeight() / 2);
+            filters[1] = new CropImageFilter(0, image.getHeight() / 2, image.getWidth(), image.getHeight() / 2);
             break;
         default:
             throw new IllegalArgumentException();
         }
 
-        Graphics2D g = rotatedImage.createGraphics();
-        g.translate(x, y);
-        g.rotate(Math.toRadians(degree));
-        g.drawImage(image, 0, 0, null);
-        g.dispose();
+        for (int i = 0; i < filters.length; i++) {
+            Image processedImage = Toolkit.getDefaultToolkit()
+                    .createImage(new FilteredImageSource(image.getSource(), filters[i]));
 
-        return rotatedImage;
+            if (processedImage instanceof BufferedImage bufferedImage) {
+                images[i] = bufferedImage;
+            } else {
+                images[i] = new BufferedImage(processedImage.getWidth(null), processedImage.getHeight(null),
+                        image.getType());
+
+                Graphics2D g = images[i].createGraphics();
+                g.drawImage(processedImage, 0, 0, null);
+                g.dispose();
+            }
+        }
+
+        return images;
     }
 
     static Optional<BufferedImage> getBufferedImage(PDPage page) throws IOException {
